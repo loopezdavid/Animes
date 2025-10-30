@@ -4,9 +4,15 @@ from DAO_Logins import DAO_Logins
 from Usuario_Contrasenya import Usuario_Contrasenya
 
 CANTIDAD_ERRORES = 2
+LARGO_OBCIONES_LOGIN = 2
+LARGO_OBCIONES_ANIME = 4
+
+user_test_ratings = {
+    "Hunter x Hunter (2011)": 10,
+    "School Days": 1
+}
 
 accion_usuario = 1
-usuario_cambiar= 1
 
 API_Animes = None
 
@@ -44,24 +50,24 @@ def verificacion_usuario_existente(user_buscar):
     return False
 
 def mostrar_menu_acciones_animes():
-    menu = ("\033[33m1.- Recomendar Animes.\n"
-        "2.- Entrenar Algoritmo.\n"
-        "3.- Obtener Version.\n"
-        "4.- Testear Algoritmo.\n"
-        "0.- Salir.\033[0m\n"
+    menu = ("\033[33m1.- Recomendar Animes\n"
+        "2.- Entrenar Algoritmo\n"
+        "3.- Obtener Version\n"
+        "4.- Testear Algoritmo\n"
+        "0.- Salir\033[0m\n"
     )
     return menu
 
 def mostrar_menu_acciones_login():
-    menu = ("\033[33m1.- Iniciar sesión.\n"
+    menu = ("\033[33m1.- Iniciar sesión\n"
         "2.- Registrarse\n"
-        "0.- Salir.\033[0m\n"
+        "0.- Salir\033[0m\n"
     )
     return menu
 
 def validar_password(password):
     # Al menos 8 caracteres
-    # Al menos una mayúscula
+    # Al menos una mayuscula
     # Al menos un caracter especial
     regex = r'^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$'
     
@@ -106,7 +112,7 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
         print("\033[31mOpción inválida, escribe un número.\033[0m")
         continue
 
-    if accion_usuario > 2 or accion_usuario < 0:
+    if accion_usuario > LARGO_OBCIONES_LOGIN or accion_usuario < 0:
         print("\033[31mOpción inválida, seleccione un número del menu.\033[0m")
         continue
 
@@ -170,6 +176,23 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
 
         print ("\n\033[36mBienvenid@ al recomendador de animes 2000\n")
         accion_usuario = 0
+
+
+###     Seccion Recomendaciones
+accion_usuario = 1
+while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() == True:
+
+    print(mostrar_menu_acciones_animes())
+    
+    try:
+        accion_usuario = int(input(" Elige una opción: ").strip())
+    except ValueError:
+        print("\033[31mOpción inválida, escribe un número.\033[0m")
+        continue
+
+    if accion_usuario > LARGO_OBCIONES_ANIME or accion_usuario < 0:
+        print("\033[31mOpción inválida, seleccione un número del menu.\033[0m")
+        continue
 
 print("\033[36mHazta luego\n\033[0m")
 DAO_logins.close()

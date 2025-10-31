@@ -133,7 +133,7 @@ def recomendar():
         # Filtrar solo animes conocidos
         available_animes = [a for a in user_ratings.keys() if a in corrMatrix.columns]
         if not available_animes:
-            return jsonify({"error": "Ninguno de los animes enviados está en el modelo"}), 400
+            return jsonify({"error": "Ninguno de los animes enviados esta en el modelo"}), 400
 
         myRatings = pd.Series({anime: user_ratings[anime] for anime in available_animes})
 

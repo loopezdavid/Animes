@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import pickle  #Libreria ara guardar/cargar el modelo
+import pickle  #Libreria para guardar/cargar el modelo
 import pandas as pd
 import numpy as np
 import os
@@ -10,7 +10,7 @@ MODEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "modelo_co
 
 app = Flask(__name__)
 
-vers = "0.0.1"
+vers = "0.0.4"
 
 corrMatrix = None
 anime = None
@@ -133,7 +133,7 @@ def recomendar():
         simCandidates.sort_values(inplace=True, ascending=False)
         filteredSims = simCandidates.drop(myRatings.index, errors='ignore')
 
-        # 🔹 Convertir a DataFrame para mantener orden y serializar bien
+        # Convertir a DataFrame para mantener orden y serializar
         top_recommendations = (
             filteredSims
             .head(10)
@@ -141,7 +141,7 @@ def recomendar():
             .rename(columns={"index": "anime", 0: "puntaje"})
         )
 
-        # 🔹 Convertir a lista ordenada de pares [nombre, valor]
+        # Convertir a lista ordenada de pares [nombre, valor]
         top_recommendations_list = top_recommendations.values.tolist()
 
         return jsonify({
@@ -154,14 +154,14 @@ def recomendar():
         traceback.print_exc()
         return jsonify({"error": f"Error generando recomendaciones: {str(e)}"}), 500
 
-
+# Devuelve 50 animes aleatorios
 @app.route("/animes", methods=["GET"])
 def obtener_animes():
-    """Devuelve 50 animes aleatorios [id, nombreAnime]."""
+
     global anime
 
     if anime is None:
-        return jsonify({"error": "Los datos de anime no están cargados. Llama primero a /entrenar"}), 400
+        return jsonify({"error": "Los datos de anime no estan cargados. Llama primero a /entrenar"}), 400
 
     try:
         sample = anime.sample(n=50, random_state=random.randint(0, 9999))

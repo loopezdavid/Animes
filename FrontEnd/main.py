@@ -6,12 +6,14 @@ from DAO_Logins import DAO_Logins
 from Usuario_Contrasenya import Usuario_Contrasenya
 
 CANTIDAD_ERRORES = 2
-LARGO_OBCIONES_LOGIN = 2
-LARGO_OBCIONES_ANIME = 4
+LARGO_OPCIONES_LOGIN = 2
+LARGO_OPCIONES_ANIME = 4
 BASE_URL = "http://localhost:5000"
 
-user_test_ratings = {
-    "Hunter x Hunter (2011)": 10,
+user_test_ratings = {}
+
+user_ratings_hardcore = {
+    "Hunter x Hunter": 10,
     "School Days": 1
 }
 
@@ -51,6 +53,33 @@ def pedir_contrasenya(prompt: str) -> str:
             continue
         return pwd
     
+def pedir_anime(prompt: str):
+    while True:
+        texto = input(prompt)
+        if texto.strip() == "":
+            print("\033[31mAnime inválido: no puede estar vacío ni contener solo espacios. Intenta otra vez.\033[0m")
+            continue
+        return str(texto)
+    
+def pedir_calificacion(prompt: str) -> int:
+    while True:
+        pwd = input(prompt)
+        if pwd.strip() == "":
+            print("\033[31mCalificación inválida: no puede estar vacía ni contener solo espacios.\033[0m")
+            continue
+
+        if not pwd.isdigit():
+            print("\033[31mIngresa solo números.\033[0m")
+            continue
+
+        calificacion = int(pwd)
+
+        if calificacion < 1 or calificacion > 10:
+            print("\033[31mLa calificación debe estar entre 1 y 10.\033[0m")
+            continue
+
+        return calificacion
+
 def verificacion_usuario_existente(user_buscar):
     indice_columna = 1
     for fila in usuarios:
@@ -63,6 +92,13 @@ def mostrar_menu_acciones_animes():
         "2.- Entrenar Algoritmo\n"
         "3.- Obtener Version\n"
         "4.- Testear Algoritmo\n"
+        "0.- Salir\033[0m\n"
+    )
+    return menu
+
+def mostrar_menu_acciones_recomendar():
+    menu = ("\033[33m1.- Introducir anime\n"
+        "2.- Recomendar\n"
         "0.- Salir\033[0m\n"
     )
     return menu
@@ -147,7 +183,7 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
         print("\033[31mOpción inválida, escribe un número.\033[0m")
         continue
 
-    if accion_usuario > LARGO_OBCIONES_LOGIN or accion_usuario < 0:
+    if accion_usuario > LARGO_OPCIONES_LOGIN or accion_usuario < 0:
         print("\033[31mOpción inválida, seleccione un número del menu.\033[0m")
         continue
 
@@ -214,12 +250,11 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
         accion_usuario = 0
         accion_usuario_anime = 1
 
+# Entrenar (solo la primera vez)
+resp = req.post(f"{BASE_URL}/entrenar")
+
 ###     Seccion Recomendaciones
 while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexion() == True:
-
-    # Entrenar (solo la primera vez)
-    resp = req.post(f"{BASE_URL}/entrenar")
-    #print(resp.json())
 
     print(mostrar_menu_acciones_animes())
     
@@ -229,18 +264,57 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
         print("\033[31mOpción inválida, escribe un número.\033[0m")
         continue
 
-    if accion_usuario_anime > LARGO_OBCIONES_ANIME or accion_usuario_anime < 0:
+    if accion_usuario_anime > LARGO_OPCIONES_ANIME or accion_usuario_anime < 0:
         print("\033[31mOpción inválida, seleccione un número del menu.\033[0m")
         continue
 
-    # Recomendar
+    # Recomendar animes
     if accion_usuario_anime == 1:
-        user_ratings = {
-            "Hunter x Hunter (2011)": 10,
-            "School Days": 1
-        }
+        anime_entrante = ""
+        calificacion_entrante = ""
+        accion_usuario_recomendacion = 1
 
-        resp = req.post(f"{BASE_URL}/recomendar", json=user_ratings)
+        while accion_usuario_recomendacion != 0 and DAO_logins.get_conexion() == True:
+            print(mostrar_menu_acciones_recomendar())
+
+            try:
+                accion_usuario_recomendacion = int(input(" Elige una opción: ").strip())
+            except ValueError:
+                print("\033[31mOpción inválida, escribe un número.\033[0m")
+                continue
+
+            if accion_usuario_recomendacion > LARGO_OPCIONES_LOGIN or accion_usuario_recomendacion < 0:
+                print("\033[31mOpción inválida, seleccione un número del menu.\033[0m")
+                continue
+
+            if accion_usuario_recomendacion == 1:
+                anime_entrante = pedir_anime("Introduce el nombre del anime: ")
+                calificacion_entrante = pedir_calificacion("Introduce la calificación por favor (del 1 al 10): ")
+
+                user_test_ratings[anime_entrante] = calificacion_entrante
+
+                print(f"\n\033[32mCalificación de Anime agregada\033[0m")
+
+            if accion_usuario_recomendacion == 2 and len(user_test_ratings) > 0:
+                resp_recom = req.post(f"{BASE_URL}/recomendar", json=user_test_ratings)
+
+                if resp_recom.status_code == 200:
+                    data = resp_recom.json()
+                    print(mostrar_lista_recomendaciones(data))
+            
+                else:
+                    print("Error:", resp_recom.text)
+                    
+            if len(user_test_ratings) <= 0: print("Tu lista de calificados esta vacia")
+
+
+    # Entrenar otra vez
+    if accion_usuario_anime == 2:
+        resp = req.post(f"{BASE_URL}/entrenar?force=true")
+
+    # Testear
+    if accion_usuario_anime == 4:
+        resp = req.post(f"{BASE_URL}/recomendar", json=user_ratings_hardcore)
 
         if resp.status_code == 200:
             data = resp.json()

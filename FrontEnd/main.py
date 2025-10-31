@@ -115,8 +115,8 @@ def mostrar_lista_animes(animes_lista):
         return "\033[31mLa lista de datos está vacía\033[0m"
 
     formateado = "[ID, 'Nombre']\n"
-    for carrera in animes_lista:
-        formateado += f"{carrera}\n"
+    for anime in animes_lista:
+        formateado += f"{anime}\n"
 
     return formateado
 
@@ -169,12 +169,12 @@ DAO_logins.conectar()
 
 if DAO_logins.get_conexion() == True: 
     usuarios = DAO_logins.ver()
-    print("\n\033[36mAhora por favor escoge que deseas hacer\n")
+    print("\n\033[36mAhora por favor escoge que deseas hacer\033[0m\n")
 else: print("\033[31mConexion no hecha\033[0m")
 
 ###     Seccion Login anime
 while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() == True:
-
+    print("Opciones:")
     print(mostrar_menu_acciones_login())
     
     try:
@@ -199,7 +199,7 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
         verif_c = verificar_contrasenya_correcta(usuario_API)
 
         if verif_c == True and verif_u == True:
-            print ("\n\033[36mBienvenid@ al recomendador de animes 2000\n")
+            print ("\n\033[36mBienvenid@ al recomendador de animes 2000\033[0m")
             accion_usuario = 0
             accion_usuario_anime = 1
             
@@ -238,7 +238,7 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
             if indexErrors >= CANTIDAD_ERRORES: break
 
         if indexErrors >= CANTIDAD_ERRORES: 
-            print("\n\033[31mCantidad de errores alcanzados \033[0m\n")
+            print("\n\033[31mCantidad de errores alcanzados\033[0m\n")
             continue
 
         nuevo_usuario = Usuario_Contrasenya(accion_nombre_registro, accion_contrasenya_registro)
@@ -246,7 +246,7 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
         
         print(f"\n\033[32mNuevo usuario creado\033[0m")
 
-        print ("\n\033[36mBienvenid@ al recomendador de animes 2000\n")
+        print ("\n\033[36mBienvenid@ al recomendador de animes 2000\033[0m")
         accion_usuario = 0
         accion_usuario_anime = 1
 
@@ -255,7 +255,7 @@ resp = req.post(f"{BASE_URL}/entrenar")
 
 ###     Seccion Recomendaciones
 while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexion() == True:
-
+    print("\nOpciones:")
     print(mostrar_menu_acciones_animes())
     
     try:
@@ -275,6 +275,7 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
         accion_usuario_recomendacion = 1
 
         while accion_usuario_recomendacion != 0 and DAO_logins.get_conexion() == True:
+            print("\nOpciones:")
             print(mostrar_menu_acciones_recomendar())
 
             try:
@@ -288,6 +289,12 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
                 continue
 
             if accion_usuario_recomendacion == 1:
+                print("Algunas recomendaciones aleatorias")
+
+                resp = req.get(f"{BASE_URL}/animes")
+                animes = resp.json()["animes"]
+                print(mostrar_lista_animes(animes))
+
                 anime_entrante = pedir_anime("Introduce el nombre del anime: ")
                 calificacion_entrante = pedir_calificacion("Introduce la calificación por favor (del 1 al 10): ")
 
@@ -305,12 +312,17 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
                 else:
                     print("Error:", resp_recom.text)
                     
-            if len(user_test_ratings) <= 0: print("Tu lista de calificados esta vacia")
-
+            if len(user_test_ratings) <= 0: print("\n\033[31mTu lista de calificados esta vacia\033[0m")
 
     # Entrenar otra vez
     if accion_usuario_anime == 2:
         resp = req.post(f"{BASE_URL}/entrenar?force=true")
+
+    # Version
+    if accion_usuario_anime == 3:
+        resp = req.get(f"{BASE_URL}/version")
+        data = resp.json()
+        print(f"\n\033[32mVersion del codigo: {data['version']}\033[0m")
 
     # Testear
     if accion_usuario_anime == 4:
@@ -322,12 +334,6 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
             
         else:
             print("Error:", resp.text)
-
-    # Version
-    if accion_usuario_anime == 3:
-        resp = req.get(f"{BASE_URL}/version")
-        data = resp.json()
-        print(f"\n\033[32mVersion del codigo: {data['version']}\n\033[0m")
 
 
 

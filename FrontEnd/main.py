@@ -1,11 +1,14 @@
 import requests as req
 import re
+import os
+import time
 from DAO_Logins import DAO_Logins
 from Usuario_Contrasenya import Usuario_Contrasenya
 
 CANTIDAD_ERRORES = 2
 LARGO_OBCIONES_LOGIN = 2
 LARGO_OBCIONES_ANIME = 4
+BASE_URL = "http://localhost:5000"
 
 user_test_ratings = {
     "Hunter x Hunter (2011)": 10,
@@ -13,6 +16,7 @@ user_test_ratings = {
 }
 
 accion_usuario = 1
+accion_usuario_anime = 0
 
 API_Animes = None
 
@@ -25,6 +29,11 @@ usuario_AN = None
 contrasenya_AN = None
 
 conexion_establecida = False
+
+### Funciones nesesarias
+def clear(wait=2):
+    time.sleep(wait)
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def pedir_texto(prompt: str):
     while True:
@@ -64,6 +73,32 @@ def mostrar_menu_acciones_login():
         "0.- Salir\033[0m\n"
     )
     return menu
+
+def mostrar_lista_animes(animes_lista):
+    if not animes_lista:
+        return "\033[31mLa lista de datos está vacía\033[0m"
+
+    formateado = "[ID, 'Nombre']\n"
+    for carrera in animes_lista:
+        formateado += f"{carrera}\n"
+
+    return formateado
+
+def mostrar_lista_recomendaciones(data):
+    if not data:
+        return "\033[31mLa lista de datos está vacía\033[0m"
+
+    formateado = "\n=== Calificaciones del usuario ===\n"
+
+    for nombre, valor in data["usuario_ratings"].items():
+        formateado += (f"{nombre:<35} => {valor}\n")
+
+    formateado += "\n=== Recomendaciones TOP 10 ===\n"
+
+    for nombre, valor in data["recomendaciones_top_10"]:
+        formateado += (f"{nombre:<35} => {round(valor, 2)}\n")
+
+    return formateado
 
 def validar_password(password):
     # Al menos 8 caracteres
@@ -130,6 +165,7 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
         if verif_c == True and verif_u == True:
             print ("\n\033[36mBienvenid@ al recomendador de animes 2000\n")
             accion_usuario = 0
+            accion_usuario_anime = 1
             
         else:
             print ("\n\033[31mHubo algun problema con los datos o no estas registrad@.\033[0m\n")
@@ -176,26 +212,61 @@ while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() ==
 
         print ("\n\033[36mBienvenid@ al recomendador de animes 2000\n")
         accion_usuario = 0
-
+        accion_usuario_anime = 1
 
 ###     Seccion Recomendaciones
-accion_usuario = 1
-while accion_usuario != 0 and DAO_logins!= None and DAO_logins.get_conexion() == True:
+while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexion() == True:
+
+    # Entrenar (solo la primera vez)
+    resp = req.post(f"{BASE_URL}/entrenar")
+    #print(resp.json())
 
     print(mostrar_menu_acciones_animes())
     
     try:
-        accion_usuario = int(input(" Elige una opción: ").strip())
+        accion_usuario_anime = int(input(" Elige una opción: ").strip())
     except ValueError:
         print("\033[31mOpción inválida, escribe un número.\033[0m")
         continue
 
-    if accion_usuario > LARGO_OBCIONES_ANIME or accion_usuario < 0:
+    if accion_usuario_anime > LARGO_OBCIONES_ANIME or accion_usuario_anime < 0:
         print("\033[31mOpción inválida, seleccione un número del menu.\033[0m")
         continue
 
+    # Recomendar
+    if accion_usuario_anime == 1:
+        user_ratings = {
+            "Hunter x Hunter (2011)": 10,
+            "School Days": 1
+        }
+
+        resp = req.post(f"{BASE_URL}/recomendar", json=user_ratings)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            print(mostrar_lista_recomendaciones(data))
+            
+        else:
+            print("Error:", resp.text)
+
+    # Version
+    if accion_usuario_anime == 3:
+        resp = req.get(f"{BASE_URL}/version")
+        data = resp.json()
+        print(f"\n\033[32mVersion del codigo: {data['version']}\n\033[0m")
+
+
+
+
+# Obtener lista de 50 animes
+"""resp = req.get(f"{BASE_URL}/animes")
+animes = resp.json()["animes"]
+print(mostrar_lista_animes(animes))"""
+
+
 print("\033[36mHazta luego\n\033[0m")
 DAO_logins.close()
+clear(2)
 
 
 

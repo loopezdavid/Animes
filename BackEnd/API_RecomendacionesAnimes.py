@@ -1,33 +1,43 @@
 from flask import Flask, request, jsonify
+import pickle  #Libreria ara guardar/cargar el modelo
 import pandas as pd
 import numpy as np
 import os
 import html
 import random
 
+MODEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "modelo_corrMatrix.pkl")
+
 app = Flask(__name__)
 
 vers = "0.0.1"
-
-# ============================
-# VARIABLES GLOBALES
-# ============================
 
 corrMatrix = None
 anime = None
 ratings = None
 
-# ============================
-# FUNCIÓN DE ENTRENAMIENTO
-# ============================
+def entrenar_modelo(force=False):
+    #Si force=False, intenta cargar desde archivo. Si no existe, entrena y guarda.
 
-def entrenar_modelo():
-    """Carga los CSV y genera la matriz de correlación de animes."""
     global corrMatrix, anime, ratings
 
-    base_path = os.getcwd()
+    base_path = os.path.dirname(os.path.abspath(__file__))
     anime_file = os.path.join(base_path, "anime.csv")
     ratings_file = os.path.join(base_path, "rating.csv")
+
+    # Intentar cargar modelo existente
+    if not force and os.path.exists(MODEL_FILE):
+        print("\033[36m### Cargando modelo entrenado desde archivo...\033[0m")
+        with open(MODEL_FILE, "rb") as f:
+            data = pickle.load(f)
+            corrMatrix = data["corrMatrix"]
+            anime = data["anime"]
+            ratings = data["ratings"]
+        print("\033[32m### Modelo cargado correctamente.\033[0m")
+        return
+
+    # Si no existe el modelo, entrenar desde cero
+    print("\033[33m### Entrenando modelo desde cero...\033[0m")
 
     anime_cols = ['anime_id', 'name', 'genre', 'type', 'episodes', 'rating', 'members']
     ratings_cols = ['user_id', 'anime_id', 'rating']
@@ -51,7 +61,6 @@ def entrenar_modelo():
     ratings_with_name['name'] = ratings_with_name['name'].astype('category')
     ratings_with_name['user_id'] = ratings_with_name['user_id'].astype('category')
 
-    # Filtrar animes populares
     anime_counts = ratings_with_name['name'].value_counts()
     popular_animes = anime_counts[anime_counts > 400].index
     filtered = ratings_with_name[ratings_with_name['name'].isin(popular_animes)]
@@ -65,7 +74,16 @@ def entrenar_modelo():
     ).astype('float32')
 
     corrMatrix = ratings_pivot.corr(method='pearson', min_periods=250)
-    print("✅ Entrenamiento completado. Matriz de correlación generada.")
+
+    # Guardar modelo
+    print("### \033[33mGuardando modelo entrenado en archivo...\033[0m")
+    with open(MODEL_FILE, "wb") as f:
+        pickle.dump({
+            "corrMatrix": corrMatrix,
+            "anime": anime,
+            "ratings": ratings
+        }, f)
+    print(f"\033[32m### Modelo guardado en {MODEL_FILE}\033[0m")
 
 
 
@@ -77,8 +95,9 @@ def version():
 @app.route("/entrenar", methods=["POST"])
 def entrenar():
     try:
-        entrenar_modelo()
-        return jsonify({"mensaje": "Modelo entrenado correctamente"}), 200
+        force = request.args.get("force", "false").lower() == "true"
+        entrenar_modelo(force=force)
+        return jsonify({"mensaje": "Modelo cargado o entrenado correctamente"}), 200
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -114,11 +133,20 @@ def recomendar():
         simCandidates.sort_values(inplace=True, ascending=False)
         filteredSims = simCandidates.drop(myRatings.index, errors='ignore')
 
-        top_recommendations = filteredSims.head(10).to_dict()
+        # 🔹 Convertir a DataFrame para mantener orden y serializar bien
+        top_recommendations = (
+            filteredSims
+            .head(10)
+            .reset_index()
+            .rename(columns={"index": "anime", 0: "puntaje"})
+        )
+
+        # 🔹 Convertir a lista ordenada de pares [nombre, valor]
+        top_recommendations_list = top_recommendations.values.tolist()
 
         return jsonify({
             "usuario_ratings": user_ratings,
-            "recomendaciones_top_10": top_recommendations
+            "recomendaciones_top_10": top_recommendations_list
         }), 200
 
     except Exception as e:
@@ -145,10 +173,6 @@ def obtener_animes():
         traceback.print_exc()
         return jsonify({"error": f"No se pudieron obtener los animes: {str(e)}"}), 500
 
-
-# ============================
-# MAIN
-# ============================
 
 if __name__ == "__main__":
     app.run(debug=True)

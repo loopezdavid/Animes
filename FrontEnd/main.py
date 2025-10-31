@@ -14,6 +14,7 @@ user_test_ratings = {}
 
 user_ratings_hardcore = {
     "Hunter x Hunter": 10,
+    "Hunter x Hunter (2011)": 8,
     "School Days": 1
 }
 

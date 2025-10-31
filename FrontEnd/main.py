@@ -55,11 +55,16 @@ def pedir_contrasenya(prompt: str) -> str:
     
 def pedir_anime(prompt: str):
     while True:
-        texto = input(prompt)
-        if texto.strip() == "":
-            print("\033[31mAnime inválido: no puede estar vacío ni contener solo espacios. Intenta otra vez.\033[0m")
+        texto = input(prompt).strip()
+        if texto == "":
+            print("\033[31mAnime inválido: no puede estar vacío.\033[0m")
             continue
-        return str(texto)
+
+        if not re.fullmatch(r"\d+", texto):
+            print("\033[31mEntrada inválida: debe ser solo números, sin espacios ni caracteres especiales.\033[0m")
+            continue
+
+        return texto
     
 def pedir_calificacion(prompt: str) -> int:
     while True:
@@ -349,6 +354,3 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
 print("\n\033[36m Hazta luego...\n\033[0m")
 DAO_logins.close()
 clear(2)
-
-
-

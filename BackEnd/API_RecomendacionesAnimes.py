@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import pickle  #Libreria para guardar/cargar el modelo
+import pickle #Libreria para guardar/cargar el modelo
 import pandas as pd
 import numpy as np
 import os
@@ -11,7 +11,7 @@ MODEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "modelo_co
 
 app = Flask(__name__)
 
-vers = "0.0.4"
+vers = "0.0.5"
 
 corrMatrix = None
 anime = None
@@ -19,7 +19,6 @@ ratings = None
 
 def entrenar_modelo(force=False):
     # Si force=False, intenta cargar desde archivo. Si no existe, entrena y guarda.
-
     global corrMatrix, anime, ratings
 
     # Archivos dentro de la carpeta "RecomendacionesAnime" relativa al notebook 
@@ -38,7 +37,7 @@ def entrenar_modelo(force=False):
             ratings = data["ratings"] # Recupera si existe ratings
         print("\033[32m### Modelo cargado correctamente.\033[0m")
         return
-
+    
     # Si no existe el modelo entrenar desde cero
     print("\033[33m### Entrenando modelo desde cero...\033[0m")
 
@@ -70,21 +69,22 @@ def entrenar_modelo(force=False):
 
     # Estas lineas cambian el tipo de datos de las columnas introducidas a category
     # Los category ocupan menos espacio que object o int
-    ratings_with_name = ratings.merge(anime[['anime_id', 'name']], on='anime_id', how='inner')
-    ratings_with_name['name'] = ratings_with_name['name'].astype('category')
-    ratings_with_name['user_id'] = ratings_with_name['user_id'].astype('category')
+    ratings_with_id = ratings.merge(anime[['anime_id', 'name']], on='anime_id', how='inner')
+    ratings_with_id['anime_id'] = ratings_with_id['anime_id'].astype('category')
+    ratings_with_id['user_id'] = ratings_with_id['user_id'].astype('category')
 
     # Filtrar por los animes más puntuados
-    anime_counts = ratings_with_name['name'].value_counts() # Cuenta de calificación por anime
-    popular_animes = anime_counts[anime_counts > 400].index # Filtrado de mas de 400 Calificaciones
-    filtered = ratings_with_name[ratings_with_name['name'].isin(popular_animes)] #Filtrado para solamente quedarse los populares y eliminar el resto
+    anime_counts = ratings_with_id['anime_id'].value_counts()
+    popular_animes = anime_counts[anime_counts > 300].index
+    filtered = ratings_with_id[ratings_with_id['anime_id'].isin(popular_animes)]
 
+    # Creacion de tabla en donde cada fila es un usuario y cada columna es un anume, y las celdas los rating
     ratings_pivot = filtered.pivot_table(
-        index='user_id',
-        columns='name',
-        values='user_rating',
-        aggfunc='mean',
-        observed=True
+        index='user_id', # Filas
+        columns='anime_id', # Columnas
+        values='user_rating', # Valores
+        aggfunc='mean', # Sacar promedio si hay repetidos
+        observed=True # Optimizacion si hay categorias
     ).astype('float32')
 
     corrMatrix = ratings_pivot.corr(method='pearson', min_periods=250) # Minimo 250 que evaluaron los animes
@@ -93,18 +93,17 @@ def entrenar_modelo(force=False):
     print("### \033[33mGuardando modelo entrenado en archivo...\033[0m")
     with open(MODEL_FILE, "wb") as f: # Abre el archivo en modo escritura binaria (wb = write binary)
         pickle.dump({ # Guardado de datos
-            "corrMatrix": corrMatrix, 
+            "corrMatrix": corrMatrix,
             "anime": anime,
             "ratings": ratings
         }, f)
     print(f"\033[32m### Modelo guardado en {MODEL_FILE}\033[0m")
 
-
-
 ###     EndPoints
 @app.route("/version", methods=["GET"])
 def version():
     return jsonify({"version": vers}), 200
+
 
 @app.route("/entrenar", methods=["POST"])
 def entrenar():
@@ -120,27 +119,27 @@ def entrenar():
 
 @app.route("/recomendar", methods=["POST"])
 def recomendar():
-    global corrMatrix
+    global corrMatrix, anime
 
     if corrMatrix is None:
         return jsonify({"error": "El modelo no está entrenado. Llama primero a /entrenar"}), 400
 
     try:
-        user_ratings = request.json  # Diccionario enviado desde consola
+        user_ratings = request.json  # Diccionario enviado desde consola {anime_id: calificación}
         if not user_ratings:
-            return jsonify({"error": "Debes enviar un JSON con las calificaciones del usuario"}), 400
+            return jsonify({"error": "Debes enviar un JSON con las calificaciones del usuario (anime_id: rating)"}), 400
 
         # Filtrar solo animes conocidos
-        available_animes = [a for a in user_ratings.keys() if a in corrMatrix.columns]
-        if not available_animes:
-            return jsonify({"error": "Ninguno de los animes enviados esta en el modelo"}), 400
+        available_ids = [int(aid) for aid in user_ratings.keys() if int(aid) in corrMatrix.columns]
+        if not available_ids:
+            return jsonify({"error": "Ninguno de los animes enviados está en el modelo"}), 400
 
-        myRatings = pd.Series({anime: user_ratings[anime] for anime in available_animes})
+        myRatings = pd.Series({int(aid): user_ratings[str(aid)] for aid in available_ids})
 
         simCandidates = pd.Series(dtype='float64') # Creacion de serie vacia
-        for anime_name, rating_value in myRatings.items():
+        for anime_id, rating_value in myRatings.items():
             # Recuperar las similitudes del anime actual
-            sims = corrMatrix[anime_name].dropna()
+            sims = corrMatrix[anime_id].dropna()
             # Escalar la similaridad multiplicando la correlación por la calificación de la persona
             sims = sims.map(lambda x: x * rating_value)
             # Agregar al conjunto de candidatos
@@ -156,15 +155,30 @@ def recomendar():
             filteredSims
             .head(10)
             .reset_index()
-            .rename(columns={"index": "anime", 0: "puntaje"})
+            .rename(columns={"index": "anime_id", 0: "puntaje"})
         )
 
-        # Convertir a lista ordenada de pares [nombre, valor]
-        top_recommendations_list = top_recommendations.values.tolist()
+        # Agregar nombres a las recomendaciones
+        top_recommendations = top_recommendations.merge(
+            anime[['anime_id', 'name']], on='anime_id', how='left'
+        )
+
+        # Agregar nombres a los animes del usuario
+        user_data = (
+            pd.DataFrame({
+                "anime_id": list(map(int, myRatings.index)),
+                "rating": list(myRatings.values)
+            })
+            .merge(anime[['anime_id', 'name']], on='anime_id', how='left')
+        )
+
+        # El .to_dict convierte un DataFrame de Pandas en una lista de diccionarios
+        usuario_ratings_list = user_data.to_dict(orient='records')
+        recomendaciones_list = top_recommendations.to_dict(orient='records')
 
         return jsonify({
-            "usuario_ratings": user_ratings,
-            "recomendaciones_top_10": top_recommendations_list
+            "usuario_ratings": usuario_ratings_list,
+            "recomendaciones_top_10": recomendaciones_list
         }), 200
 
     except Exception as e:
@@ -172,18 +186,20 @@ def recomendar():
         traceback.print_exc()
         return jsonify({"error": f"Error generando recomendaciones: {str(e)}"}), 500
 
-# Devuelve 50 animes aleatorios
+
 @app.route("/animes", methods=["GET"])
 def obtener_animes():
-    global anime
+    global anime, corrMatrix
 
-    if anime is None:
-        return jsonify({"error": "Los datos de anime no estan cargados. Llama primero a /entrenar"}), 400
+    if anime is None or corrMatrix is None:
+        return jsonify({"error": "Los datos no están cargados. Llama primero a /entrenar"}), 400
 
     try:
-        # Seleccion aleatoria de 50 animes dentro del modelo cargado en el .pkl
-        sample = anime.sample(n=min(50, len(anime)), random_state=random.randint(0, 9999))
-        # Convertir a lista de listas [anime_id, name]
+        # Filtrar solo los animes que están en la matriz de correlación
+        disponibles = anime[anime['anime_id'].isin(corrMatrix.columns)]
+        sample = disponibles.sample(n=min(100, len(disponibles)), random_state=random.randint(0, 9999)) # Seleccionar aleatoriamente 100 entre todos
+        
+        # Convertir en lista para enviarlo por json
         lista = sample[['anime_id', 'name']].values.tolist()
         return jsonify({"animes": lista}), 200
 

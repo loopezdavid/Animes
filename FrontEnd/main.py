@@ -13,9 +13,8 @@ BASE_URL = "http://localhost:5000"
 user_test_ratings = {}
 
 user_ratings_hardcore = {
-    "Hunter x Hunter": 10,
-    "Hunter x Hunter (2011)": 8,
-    "School Days": 1
+    "136": 10,
+    "2476": 1
 }
 
 accion_usuario = 1
@@ -113,29 +112,39 @@ def mostrar_menu_acciones_login():
 
 def mostrar_lista_animes(animes_lista):
     if not animes_lista:
-        return "\033[31mLa lista de datos está vacía\033[0m"
+        return "\033[31m[!] La lista de animes está vacía\033[0m"
 
-    formateado = "[ID, 'Nombre']\n"
+    out = ["\n=== Lista de animes ==="]
+    out.append(f"{'ID':>6} | {'Nombre':<40}")
+    out.append("-" * 50)
+
     for anime in animes_lista:
-        formateado += f"{anime}\n"
+        # Soporta tanto formato [id, name] como dict {'anime_id':..., 'name':...}
+        if isinstance(anime, (list, tuple)) and len(anime) >= 2:
+            anime_id, nombre = anime[0], anime[1]
+        elif isinstance(anime, dict):
+            anime_id = anime.get("anime_id", "?")
+            nombre = anime.get("name", "Sin nombre")
+        else:
+            continue  # Ignora formatos desconocidos
 
-    return formateado
+        out.append(f"{anime_id:>6} | {nombre:<40}")
+
+    return "\n".join(out)
 
 def mostrar_lista_recomendaciones(data):
     if not data:
-        return "\033[31mLa lista de datos está vacía\033[0m"
+        return "\033[31m[!] La lista de datos está vacía\033[0m"
 
-    formateado = "\n=== Calificaciones del usuario ===\n"
+    out = ["\n=== Calificaciones del usuario ==="]
+    for item in data.get("usuario_ratings", []):
+        out.append(f"{item['anime_id']:>6} | {item['name']:<40} => {item['rating']}")
 
-    for nombre, valor in data["usuario_ratings"].items():
-        formateado += (f"{nombre:<35} => {valor}\n")
+    out.append("\n=== Recomendaciones TOP 10 ===")
+    for item in data.get("recomendaciones_top_10", []):
+        out.append(f"{item['anime_id']:>6} | {item['name']:<40} => {round(float(item['puntaje']), 2)}")
 
-    formateado += "\n=== Recomendaciones TOP 10 ===\n"
-
-    for nombre, valor in data["recomendaciones_top_10"]:
-        formateado += (f"{nombre:<35} => {round(valor, 2)}\n")
-
-    return formateado
+    return "\n".join(out)
 
 def validar_password(password):
     # Al menos 8 caracteres
@@ -290,13 +299,13 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
                 continue
 
             if accion_usuario_recomendacion == 1:
-                print("Algunas recomendaciones aleatorias")
+                print("\nAlgunas recomendaciones aleatorias")
 
                 resp = req.get(f"{BASE_URL}/animes")
                 animes = resp.json()["animes"]
                 print(mostrar_lista_animes(animes))
 
-                anime_entrante = pedir_anime("Introduce el nombre del anime: ")
+                anime_entrante = pedir_anime("\nIntroduce el número/ID del anime: ")
                 calificacion_entrante = pedir_calificacion("Introduce la calificación por favor (del 1 al 10): ")
 
                 user_test_ratings[anime_entrante] = calificacion_entrante
@@ -318,6 +327,7 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
     # Entrenar otra vez
     if accion_usuario_anime == 2:
         resp = req.post(f"{BASE_URL}/entrenar?force=true")
+        print(f"\n\033[32mEntrenamiento completado, modelo actualizado\033[0m")
 
     # Version
     if accion_usuario_anime == 3:
@@ -336,16 +346,7 @@ while accion_usuario_anime != 0 and DAO_logins!= None and DAO_logins.get_conexio
         else:
             print("Error:", resp.text)
 
-
-
-
-# Obtener lista de 50 animes
-"""resp = req.get(f"{BASE_URL}/animes")
-animes = resp.json()["animes"]
-print(mostrar_lista_animes(animes))"""
-
-
-print("\033[36mHazta luego\n\033[0m")
+print("\n\033[36m Hazta luego...\n\033[0m")
 DAO_logins.close()
 clear(2)
 

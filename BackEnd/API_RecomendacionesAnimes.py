@@ -90,7 +90,7 @@ def entrenar_modelo(force=False):
     corrMatrix = ratings_pivot.corr(method='pearson', min_periods=250) # Minimo 250 que evaluaron los animes
 
     # Guardar modelo
-    print("### \033[33mGuardando modelo entrenado en archivo...\033[0m")
+    print("\033[33m###Guardando modelo entrenado en archivo...\033[0m")
     with open(MODEL_FILE, "wb") as f: # Abre el archivo en modo escritura binaria (wb = write binary)
         pickle.dump({ # Guardado de datos
             "corrMatrix": corrMatrix,
